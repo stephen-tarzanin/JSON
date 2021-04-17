@@ -404,7 +404,7 @@ public static class JSON
                 }
                 else return double.Parse(json.Substring(start, index - start), System.Globalization.CultureInfo.InvariantCulture);
             }
-            else throw new Exception();
+            else return double.Parse(json.Substring(start, index - start), System.Globalization.CultureInfo.InvariantCulture);
         }
         else if (c >= '1' && c <= '9')
         {
