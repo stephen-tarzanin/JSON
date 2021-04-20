@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.IO;
 
 public static class JSON
 {
@@ -215,6 +216,249 @@ public static class JSON
             return s.ToString();
         }
         throw new Exception();
+    }
+
+    public static object read(string path)
+    {
+        StreamReader reader = new StreamReader(path);
+        object result = read(reader);
+        reader.Close();
+        reader.Dispose();
+        return result;
+    }
+
+    public static object read(StreamReader reader)
+    {
+        int c = reader.Read();
+        StringBuilder s = new StringBuilder();
+        object result = parseValueFromStream(reader, ref c, s);
+        if (c == -1)
+            return result;
+        else throw new Exception();
+    }
+
+    public static void write(string path, object obj)
+    {
+        StreamWriter writer = new StreamWriter(path);
+        write(writer, obj);
+        writer.Close();
+        writer.Dispose();
+    }
+
+    public static void write(StreamWriter writer, object obj, StringBuilder s = null)
+    {
+        if (s == null) s = new StringBuilder();
+        if (obj == null) writer.Write("null");
+        else if (obj is bool) writer.Write((bool)obj ? "true" : "false");
+        else if (obj is double) writer.Write(((double)obj).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        else if (obj is string)
+        {
+            s.Append('"');
+            foreach (char c in (string)obj)
+            {
+                switch (c)
+                {
+                    case '"': s.Append("\\\""); break;
+                    case '\\': s.Append("\\\\"); break;
+                    case '\n': s.Append("\\n"); break;
+                    case '\r': s.Append("\\r"); break;
+                    case '\t': s.Append("\\t"); break;
+                    case '\b': s.Append("\\b"); break;
+                    case '\f': s.Append("\\f"); break;
+                    default:
+                        if (c > '\u001f')
+                            s.Append(c);
+                        else
+                        {
+                            s.Append("\\u00");
+                            int high = c / 16;
+                            int low = c % 16;
+                            if (high <= 9)
+                                s.Append((char)('0' + high));
+                            else
+                                s.Append((char)('a' + high));
+                            if (low <= 9)
+                                s.Append((char)('0' + low));
+                            else
+                                s.Append((char)('a' + low));
+                        }
+                        break;
+                }
+            }
+            s.Append('"');
+            writer.Write(s.ToString());
+            s.Clear();
+        }
+        else if (obj is IList<object>)
+        {
+            writer.Write('[');
+            bool first = true;
+            foreach (object item in (IList<object>)obj)
+            {
+                if (first)
+                    first = false;
+                else
+                    writer.Write(',');
+                write(writer, item, s);
+            }
+            writer.Write(']');
+        }
+        else if (obj is object[])
+        {
+            writer.Write('[');
+            bool first = true;
+            foreach (object item in (object[])obj)
+            {
+                if (first)
+                    first = false;
+                else
+                    writer.Write(',');
+                write(writer, item, s);
+            }
+            writer.Write(']');
+        }
+        else if (obj is IDictionary<string, object>)
+        {
+            writer.Write('{');
+            bool first = true;
+            foreach (KeyValuePair<string, object> pair in (IDictionary<string, object>)obj)
+            {
+                if (first)
+                    first = false;
+                else
+                    writer.Write(',');
+                write(writer, pair.Key);
+                writer.Write(':');
+                write(writer, pair.Value);
+            }
+            writer.Write('}');
+        }
+        else throw new Exception();
+    }
+
+    public static void prettyWrite(string path, object obj, string indent = "\t", string newLine = "\n", int indentCount = 0, bool supressInitialIndent = false)
+    {
+        StreamWriter writer = new StreamWriter(path);
+        prettyWrite(writer, obj, indent, newLine, indentCount, supressInitialIndent);
+        writer.Close();
+        writer.Dispose();
+    }
+
+    public static void prettyWrite(StreamWriter writer, object obj, string indent = "\t", string newLine = "\n", int indentCount = 0, bool supressInitialIndent = false, StringBuilder s = null)
+    {
+        if (s == null) s = new StringBuilder();
+        if (!supressInitialIndent)
+            for (int i = 0; i < indentCount; ++i)
+                writer.Write(indent);
+
+        if (s == null) s = new StringBuilder();
+        if (obj == null) writer.Write("null");
+        else if (obj is bool) writer.Write((bool)obj ? "true" : "false");
+        else if (obj is double) writer.Write(((double)obj).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        else if (obj is string)
+        {
+            s.Append('"');
+            foreach (char c in (string)obj)
+            {
+                switch (c)
+                {
+                    case '"': s.Append("\\\""); break;
+                    case '\\': s.Append("\\\\"); break;
+                    case '\n': s.Append("\\n"); break;
+                    case '\r': s.Append("\\r"); break;
+                    case '\t': s.Append("\\t"); break;
+                    case '\b': s.Append("\\b"); break;
+                    case '\f': s.Append("\\f"); break;
+                    default:
+                        if (c > '\u001f')
+                            s.Append(c);
+                        else
+                        {
+                            s.Append("\\u00");
+                            int high = c / 16;
+                            int low = c % 16;
+                            if (high <= 9)
+                                s.Append((char)('0' + high));
+                            else
+                                s.Append((char)('a' + high));
+                            if (low <= 9)
+                                s.Append((char)('0' + low));
+                            else
+                                s.Append((char)('a' + low));
+                        }
+                        break;
+                }
+            }
+            s.Append('"');
+            writer.Write(s.ToString());
+            s.Clear();
+        }
+        else if (obj is IList<object>)
+        {
+            writer.Write('[');
+            writer.Write(newLine);
+            bool first = true;
+            foreach (object item in (IList<object>)obj)
+            {
+                if (first)
+                    first = false;
+                else
+                {
+                    writer.Write(',');
+                    writer.Write(newLine);
+                }
+                prettyWrite(writer, item, indent, newLine, indentCount + 1, false, s);
+            }
+            writer.Write(newLine);
+            for (int i = 0; i < indentCount; ++i)
+                writer.Write(indent);
+            writer.Write(']');
+        }
+        else if (obj is object[])
+        {
+            writer.Write('[');
+            writer.Write(newLine);
+            bool first = true;
+            foreach (object item in (object[])obj)
+            {
+                if (first)
+                    first = false;
+                else
+                {
+                    writer.Write(',');
+                    writer.Write(newLine);
+                }
+                prettyWrite(writer, item, indent, newLine, indentCount + 1, false, s);
+            }
+            writer.Write(newLine);
+            for (int i = 0; i < indentCount; ++i)
+                writer.Write(newLine);
+            writer.Write(']');
+        }
+        else if (obj is IDictionary<string, object>)
+        {
+            writer.Write('{');
+            writer.Write(newLine);
+            bool first = true;
+            foreach (KeyValuePair<string, object> pair in (IDictionary<string, object>)obj)
+            {
+                if (first)
+                    first = false;
+                else
+                {
+                    writer.Write(',');
+                    writer.Write(newLine);
+                }
+                prettyWrite(writer, pair.Key, indent, newLine, indentCount + 1, false, s);
+                writer.Write(": ");
+                prettyWrite(writer, pair.Value, indent, newLine, indentCount + 1, true, s);
+            }
+            writer.Write(newLine);
+            for (int i = 0; i < indentCount; ++i)
+                writer.Write(newLine);
+            writer.Write('}');
+        }
+        else throw new Exception();
     }
 
     static object parse(string json, ref int index)
@@ -519,7 +763,7 @@ public static class JSON
                     else throw new Exception();
                 }
             }
-                
+
         }
         else throw new Exception();
     }
@@ -590,4 +834,180 @@ public static class JSON
         }
         else throw new Exception();
     }
+
+    static object parseValueFromStream(StreamReader reader, ref int _c, StringBuilder s)
+   {
+       int c = _c;
+       object result = null;
+       bool valueFound = false;
+       while (c != -1 && char.IsWhiteSpace((char)c))
+           c = reader.Read();
+
+       switch (c)
+       {
+           case -1: throw new Exception();
+           case '"':
+               valueFound = true;
+               result = parseStringFromStream(reader, s);
+               c = reader.Read();
+               break;
+           case 'n':
+               valueFound = true;
+               for (int i = 0; i < 3; ++i)
+               {
+                   c = reader.Read();
+                   if (c != "ull"[i]) throw new Exception();
+               }
+               result = null;
+               c = reader.Read();
+               break;
+           case 'f':
+               valueFound = true;
+               for (int i = 0; i < 4; ++i)
+               {
+                   c = reader.Read();
+                   if (c != "alse"[i]) throw new Exception();
+               }
+               result = false;
+               c = reader.Read();
+               break;
+           case 't':
+               valueFound = true;
+               for (int i = 0; i < 3; ++i)
+               {
+                   c = reader.Read();
+                   if (c != "rue"[i]) throw new Exception();
+               }
+               result = true;
+               c = reader.Read();
+               break;
+           case '[':
+               valueFound = true;
+               c = reader.Read();
+               while (c != -1 && char.IsWhiteSpace((char)c))
+                   c = reader.Read();
+               result = new List<object>();
+               while (true)
+               {
+                   if (c == ']')
+                   {
+                       c = reader.Read();
+                       break; ;
+                   }
+                   ((List<object>)result).Add(parseValueFromStream(reader, ref c, s));
+                   switch (c)
+                   {
+                       case ',':
+                           c = reader.Read();
+                           continue;
+                       case ']': continue;
+                       default: throw new Exception();
+                   }
+               }
+               break;
+           case '{':
+               valueFound = true;
+               c = reader.Read();
+               while (c != -1 && char.IsWhiteSpace((char)c))
+                   c = reader.Read();
+               result = new Dictionary<string, object>();
+               while (true)
+               {
+                   if (c == '}')
+                   {
+                       c = reader.Read();
+                       break;
+                   }
+                   while (c != -1 && char.IsWhiteSpace((char)c))
+                       c = reader.Read();
+                   string key;
+                   if (c == '"')
+                       key = parseStringFromStream(reader, s);
+                   else throw new Exception();
+                   c = reader.Read();
+                   if (c == ':')
+                       c = reader.Read();
+                   else throw new Exception();
+                   ((Dictionary<string, object>)result).Add(key, parseValueFromStream(reader, ref c, s));
+                   switch (c)
+                   {
+                       case ',':
+                           c = reader.Read();
+                           continue;
+                       case '}': continue;
+                       default: throw new Exception();
+                   }
+               }
+               break;
+       }
+       if (char.IsDigit((char)c)) {
+           valueFound = true;
+           while (c != -1 && (char.IsDigit((char)c) || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E'))
+           {
+               s.Append((char)c);
+               c = reader.Read();
+           }
+           result = double.Parse(s.ToString(), System.Globalization.CultureInfo.InvariantCulture);
+           s.Clear();
+       }
+       if (!valueFound) throw new Exception();
+       while (c != -1 && char.IsWhiteSpace((char)c))
+           c = reader.Read();
+       _c = c;
+       return result;
+   }
+
+   static string parseStringFromStream(StreamReader reader, StringBuilder s)
+   {
+       int c;
+       while (true)
+       {
+           c = reader.Read();
+           switch (c)
+           {
+               case -1: throw new Exception();
+               case '\\':
+                   c = reader.Read();
+                   switch (c)
+                   {
+                       case -1: throw new Exception();
+                       case '"': s.Append('"'); break;
+                       case '\\': s.Append('\\'); break;
+                       case '/': s.Append('/'); break;
+                       case 'b': s.Append('\b'); break;
+                       case 'f': s.Append('\f'); break;
+                       case 'n': s.Append('\n'); break;
+                       case 'r': s.Append('\r'); break;
+                       case 't': s.Append('\t'); break;
+                       case 'u':
+                           char unicodeChar = (char)0;
+                           for (int i = 0; i < 4; ++i)
+                           {
+                               unicodeChar <<= 4;
+                               c = reader.Read();
+                               if (c == -1) throw new Exception();
+                               else if (char.IsDigit((char)c))
+                                   unicodeChar |= (char)(c - '0');
+                               else if (c >= 'a' && c <= 'f')
+                                   unicodeChar |= (char)(10 + (c - 'a'));
+                               else if (c >= 'A' && c <= 'F')
+                                   unicodeChar |= (char)(10 + (c - 'A'));
+                               else throw new Exception();
+                           }
+                           s.Append(unicodeChar);
+                           break;
+                   }
+                   break;
+               case '"':
+                   string result = s.ToString();
+                   s.Clear();
+                   return result;
+               default:
+                   s.Append((char)c);
+                   break;
+
+           }
+       }
+       throw new Exception();
+   }
 }
